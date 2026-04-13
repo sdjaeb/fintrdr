@@ -1,0 +1,11 @@
+requests
+beautifulsoup4
+markdown
+pyyaml
+openai
+google-generativeai
+pydantic
+python-dotenv
+aiohttp
+yarl
+gitpython

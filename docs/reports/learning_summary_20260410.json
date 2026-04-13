@@ -1,0 +1,28 @@
+{
+    "date": "2026-04-10T16:44:52.689514",
+    "ml_metrics": {
+        "model_name": "LinearTrajectoryRegressor",
+        "iteration_date": "2026-04-10T16:44:52.689475",
+        "total_samples_analyzed": 34,
+        "mean_slope": 0.10645100260939437,
+        "volatility_index": 0.8147566081511766,
+        "prediction_confidence_score": 0.18524339184882338,
+        "last_update_duration_ms": 1621.297,
+        "metadata": {}
+    },
+    "top_momentum_tickers": [
+        "ARM",
+        "JPM",
+        "USO",
+        "ASML",
+        "TSM"
+    ],
+    "bottom_momentum_tickers": [
+        "SLV",
+        "ARKK",
+        "UVXY",
+        "NVDA",
+        "TQQQ"
+    ],
+    "system_evolution_notes": "Simons-style quant signals integrated."
+}

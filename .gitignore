@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# fintrdr Temporary Data
+tmp/
+research/
+docs/reports/*.html
+docs/reports/*.md
+knowledge-base/*.md
+!knowledge-base/Wiki Index.md
+
+# Obsidian (Private settings/workspace)
+knowledge-base/.obsidian/
+
+# Personal Task/Session Tracking
+.github/tasks/todo.md
+.github/tasks/lessons.md
+
+# Proprietary Journey Data
+# We ignore the actual portfolio state so your wealth progress isn't public.
+src/simulator/portfolios/*.json
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db

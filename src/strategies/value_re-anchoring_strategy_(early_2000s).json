@@ -1,0 +1,42 @@
+{
+    "name": "Value Re-Anchoring Strategy (Early 2000s)",
+    "description": "In a post-bubble environment characterized by severe deleveraging and speculative euphoria burnout, the strategy shifts decisively away from pure growth narratives. We prioritize capital preservation and invest in established moats, high-cash-flow enterprises, and foundational infrastructure. We treat market downturns as buying opportunities for proven quality over speculative momentum.",
+    "target_tickers": [
+        "BRK-B",
+        "MSFT",
+        "SPY"
+    ],
+    "rules": [
+        {
+            "condition": "first_day",
+            "action": "BUY",
+            "params": {
+                "symbol": "BRK-B",
+                "allocation_pct": 0.3,
+                "rationale": "Establish a foundational position in resilient, dividend-paying value leaders immune to speculative shocks."
+            }
+        },
+        {
+            "condition": "price < 100.00",
+            "action": "BUY",
+            "params": {
+                "symbol": "SPY",
+                "allocation_pct": 0.25,
+                "rationale": "Execute on broad market dips. When the overall index drops significantly from recent peaks, reallocate to the general market recovery via SPY."
+            }
+        },
+        {
+            "condition": "price < 200.00",
+            "action": "BUY",
+            "params": {
+                "symbol": "MSFT",
+                "allocation_pct": 0.35,
+                "rationale": "MSFT represents essential enterprise infrastructure. Buying on dips here provides exposure to the necessary digital transformation that withstands economic cycles better than consumer discretionary spending."
+            }
+        }
+    ],
+    "agent_source": "Strategy Formulation Agent",
+    "created_at": "2026-04-09T13:48:25.122574",
+    "backtest_period": null,
+    "performance_metadata": {}
+}

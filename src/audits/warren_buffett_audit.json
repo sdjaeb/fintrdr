@@ -1,0 +1,15 @@
+{
+    "strategy": "Value Investing",
+    "key_moves": [
+        {
+            "date": "2008-09",
+            "move": "Invested in Goldman Sachs",
+            "rationale": "Confidence during crisis"
+        },
+        {
+            "date": "2016-05",
+            "move": "Started buying Apple",
+            "rationale": "Evolving view on tech moats"
+        }
+    ]
+}

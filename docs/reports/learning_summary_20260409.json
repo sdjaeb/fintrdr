@@ -1,0 +1,28 @@
+{
+    "date": "2026-04-09T15:54:42.455480",
+    "ml_metrics": {
+        "model_name": "LinearTrajectoryRegressor",
+        "iteration_date": "2026-04-09T15:54:42.455228",
+        "total_samples_analyzed": 30,
+        "mean_slope": -0.2724896331684256,
+        "volatility_index": 0.665279514309743,
+        "prediction_confidence_score": 0.3347204856902571,
+        "last_update_duration_ms": 1310.433,
+        "metadata": {}
+    },
+    "top_momentum_tickers": [
+        "ARM",
+        "JPM",
+        "AMZN",
+        "DIG",
+        "SKM"
+    ],
+    "bottom_momentum_tickers": [
+        "GOOGL",
+        "V",
+        "MNST",
+        "FSLR",
+        "VERI"
+    ],
+    "system_evolution_notes": "Automated ML evaluation complete. Divergence detected in tech vs retail."
+}

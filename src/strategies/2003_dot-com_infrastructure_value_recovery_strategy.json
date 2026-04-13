@@ -1,0 +1,41 @@
+{
+    "name": "2003 Dot-Com Infrastructure Value Recovery Strategy",
+    "description": "This strategy is designed for the nascent phase following a severe tech market correction (circa 2000-2002). The thesis balances the 'patience' exemplified by Value investing (akin to Buffett's preference for durable franchises) with the undeniable secular growth trend of the internet backbone. We are not chasing the next vaporware IPO; instead, we are identifying companies whose revenues are tied to essential, non-discretionary digital infrastructure, exhibiting strong balance sheets, and demonstrating early signs of profitability rebound. The focus shifts from 'eyeballs' to 'earnings' and 'utility.'",
+    "target_tickers": [
+        "INTC",
+        "CGI",
+        "ISYS",
+        "ORCL",
+        "IBM"
+    ],
+    "rules": [
+        {
+            "condition": "Price-to-Sales (P/S) ratio is below the 3-year historical median for the sector AND Debt-to-Equity ratio is below 0.7.",
+            "action": "Initiate a Long position (Weighting: Medium)",
+            "params": {
+                "timeframe": "Quarterly Reassessment",
+                "threshold": "Must signal mean reversion relative to the sector average P/S."
+            }
+        },
+        {
+            "condition": "Revenue growth (YoY) is positive and attributable to contracted services (non-project-based).",
+            "action": "Increase exposure (Scale Up)",
+            "params": {
+                "minimum_growth_rate": "8%",
+                "source_verification": "Must demonstrate recurring revenue components."
+            }
+        },
+        {
+            "condition": "Negative Cash Flow Trajectory persists for two consecutive quarters, irrespective of future potential.",
+            "action": "Avoid/Short consideration (Weighting: Low to Zero)",
+            "params": {
+                "duration": "2 Quarters",
+                "metric_focus": "Free Cash Flow (FCF) generation is paramount."
+            }
+        }
+    ],
+    "agent_source": "Strategy Formulation Agent (Synthesized Macro/Sector Model)",
+    "created_at": "2026-04-09T13:42:54.059937",
+    "backtest_period": null,
+    "performance_metadata": {}
+}

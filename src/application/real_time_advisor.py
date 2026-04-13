@@ -7,17 +7,19 @@ import pandas as pd
 import structlog
 import yfinance as yf
 
+from src.application.audit_service import DeepAuditService
+from src.application.backtest_service import ShadowBacktestService
 from src.application.coordinator import StrategyOrchestrator
 from src.application.learning import ProgressiveLearningService
 from src.application.risk_manager import RiskManager
-from src.application.services import TickerDiscoveryService, WikiMaintenanceService
+from src.application.services import ResearchIngestionService, TickerDiscoveryService, WikiMaintenanceService
 from src.domain.portfolio import Portfolio
 from src.domain.telemetry import LearningSummary, MLModelMetrics
-from src.engine.predictive import QuantSignalProcessor, TrajectoryPredictor
-from src.engine.report_generator import ReportGenerator
-from src.engine.research_ingestor import ResearchIngestor
 from src.infrastructure.fs import FileSystemWikiAdapter
 from src.infrastructure.llm import OllamaLLMAdapter
+from src.infrastructure.predictive import QuantSignalProcessor, TrajectoryPredictor
+from src.infrastructure.reporting import ReportGeneratorAdapter
+from src.infrastructure.scraper import PoliteWebScraperAdapter
 
 logger = structlog.get_logger()
 
@@ -29,25 +31,30 @@ class RealTimeAdvisor:
 
     def __init__(self):
         self.llm = OllamaLLMAdapter()
-        self.fs = FileSystemWikiAdapter()
-        self.ingestor = ResearchIngestor()
-        self.maintenance = WikiMaintenanceService(self.fs, self.llm)
-        self.discovery = TickerDiscoveryService(self.fs, self.llm)
-        self.orch = StrategyOrchestrator(self.llm, self.fs)
-        self.report_gen = ReportGenerator()
-        self.learning = ProgressiveLearningService(self.fs, self.llm)
+        self.storage = FileSystemWikiAdapter()
+        self.scraper = PoliteWebScraperAdapter()
+        self.ingestion = ResearchIngestionService(self.scraper, self.storage)
+        self.maintenance = WikiMaintenanceService(self.storage, self.llm)
+        self.discovery = TickerDiscoveryService(self.storage, self.llm)
+        self.orch = StrategyOrchestrator(self.llm, self.storage)
+        self.report_gen = ReportGeneratorAdapter()
+        self.learning = ProgressiveLearningService(self.storage, self.llm)
         self.predictor = TrajectoryPredictor()
         self.quant = QuantSignalProcessor()
         self.risk_mgr = RiskManager()
+        self.audit = DeepAuditService(self.storage, self.llm)
+        self.backtest = ShadowBacktestService()
 
     def get_fresh_price(self, symbol: str) -> float:
         try:
             ticker = yf.Ticker(symbol)
-            return ticker.fast_info.get("last_price", ticker.history(period="1d")["Close"].iloc[-1])
+            return float(ticker.fast_info.get("last_price", ticker.history(period="1d")["Close"].iloc[-1]))
         except Exception:
             return 100.0
 
-    def exercise_recommendations(self, recommendations: list[dict], portfolio: Portfolio, optimal_reserve: float):
+    def exercise_recommendations(
+        self, recommendations: list[dict], portfolio: Portfolio, optimal_reserve: float
+    ) -> None:
         print("\n--- 🛠️ EXERCISE RECOMMENDATIONS ---")
 
         do_now = []
@@ -81,12 +88,12 @@ class RealTimeAdvisor:
             print(
                 f"⚠️ Risk Protection Warning: Current cash (${portfolio.cash:.2f}) is below the ${risk_floor:.2f} safety floor."
             )
-            deployable_cash = 0
+            deployable_cash = 0.0
 
         total_proposed_cost = sum(r["quantity"] * r["price"] for r in do_now if r["action"] in ["BUY", "SHORT"])
 
         if total_proposed_cost > deployable_cash:
-            scale_factor = deployable_cash / total_proposed_cost if total_proposed_cost > 0 else 0
+            scale_factor = deployable_cash / total_proposed_cost if total_proposed_cost > 0 else 0.0
             for r in do_now:
                 if r["action"] in ["BUY", "SHORT"]:
                     r["quantity"] *= scale_factor
@@ -110,17 +117,18 @@ class RealTimeAdvisor:
                 elif r["action"] == "SHORT":
                     portfolio.short(r["symbol"], r["quantity"], r["price"], r["rationale"])
 
-            portfolio_path = os.path.join("src/simulator/portfolios", "fintrdr_portfolio_core.json")
+            portfolio_path = os.path.join("src/infrastructure/data/portfolios", "fintrdr_portfolio_core.json")
+            os.makedirs(os.path.dirname(portfolio_path), exist_ok=True)
             with open(portfolio_path, "w", encoding="utf-8") as f:
                 f.write(portfolio.model_dump_json(indent=4))
             print("✅ Portfolio Updated.")
         else:
             print("Trades cancelled.")
 
-    def run_morning_review(self):
+    def run_morning_review(self) -> None:
         logger.info("Starting Morning Review with Risk Management", date=datetime.now().strftime("%Y-%m-%d"))
 
-        portfolio_path = os.path.join("src/simulator/portfolios", "fintrdr_portfolio_core.json")
+        portfolio_path = os.path.join("src/infrastructure/data/portfolios", "fintrdr_portfolio_core.json")
         if os.path.exists(portfolio_path):
             with open(portfolio_path) as f:
                 current_portfolio = Portfolio.model_validate_json(f.read())
@@ -129,10 +137,10 @@ class RealTimeAdvisor:
 
         initial_balance = 100.0
         self.learning.audit_performance()
-        self.ingestor.fetch_headlines()
+        self.scraper.fetch_headlines()
         self.maintenance.run_karpathy_loop()
 
-        universe_path = "src/simulator/data/ticker_universe.json"
+        universe_path = "src/infrastructure/data/universe/ticker_universe.json"
         if os.path.exists(universe_path):
             with open(universe_path) as f:
                 universe = json.load(f)
@@ -209,7 +217,7 @@ class RealTimeAdvisor:
 
         optimal_reserve = self.risk_mgr.determine_cash_reserve(trajectories)
 
-        # Formulate Strategy with Simons Quant Signals
+        # Formulate Strategy
         strat = self.orch.formulate_strategy(
             persona_path=".github/agents/strategy-agent.agent.md",
             context_topic=f"Simons-Aware Pivot. Reserve: {optimal_reserve*100}%. Trajectories: {trajectories}. Quant Signals: {quant_signals}",
@@ -224,16 +232,7 @@ class RealTimeAdvisor:
                 price = current_prices.get(symbol, 100.0)
                 timing = getattr(rule, "timing", "IMMEDIATE").upper()
                 condition = rule.condition.lower()
-                contingent_keywords = [
-                    "if",
-                    "breaks",
-                    "below",
-                    "above",
-                    "hits",
-                    "when",
-                    "target",
-                    "stops",
-                ]
+                contingent_keywords = ["if", "breaks", "below", "above", "hits", "when", "target", "stops"]
                 if any(k in condition for k in contingent_keywords) and condition != "first_day":
                     timing = "CONTINGENT"
                 elif condition == "first_day":
@@ -242,11 +241,7 @@ class RealTimeAdvisor:
                 desired_val = current_portfolio.cash * 0.15
                 desired_qty = desired_val / price if price > 0 else 0.0
                 assessment = self.risk_mgr.validate_trade(
-                    current_portfolio,
-                    symbol,
-                    quantity=desired_qty,
-                    price=price,
-                    cash_reserve_pct=optimal_reserve,
+                    current_portfolio, symbol, quantity=desired_qty, price=price, cash_reserve_pct=optimal_reserve
                 )
 
                 rec = {
@@ -267,7 +262,7 @@ class RealTimeAdvisor:
 
         final_recommendations = []
         risk_floor = real_val * optimal_reserve
-        deployable_cash = max(0, current_portfolio.cash - risk_floor)
+        deployable_cash = max(0.0, current_portfolio.cash - risk_floor)
 
         if raw_immediate:
             total_cost = sum(r["quantity"] * r["price"] for r in raw_immediate if r["action"] in ["BUY", "SHORT"])
@@ -281,12 +276,10 @@ class RealTimeAdvisor:
 
         final_recommendations.extend(contingent_recommendations)
 
+        # Intelligence
         watchlist = ["PLTR (Palantir)", "SOFI (SoFi)", "HOOD (Robinhood)", "ARM (ARM Holdings)"]
         investor_moves = ["Buffett: Recently added to Chubb (CB)", "Dalio: Warning on debt cycles"]
-        world_events = [
-            "Fed minutes suggest rates staying higher for longer",
-            "Tech earnings season begins",
-        ]
+        world_events = ["Fed minutes suggest rates staying higher for longer", "Tech earnings season begins"]
 
         if final_recommendations:
             report_path = self.report_gen.generate_daily_report(

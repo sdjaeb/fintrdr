@@ -8,11 +8,11 @@ from src.infrastructure.llm import OllamaLLMAdapter
 logger = structlog.get_logger()
 
 
-def run_day_trader_review():
+def run_day_trader_review() -> None:
     llm = OllamaLLMAdapter()
-    fs = FileSystemWikiAdapter()
-    discovery = TickerDiscoveryService(fs, llm)
-    orch = StrategyOrchestrator(llm, fs)
+    storage = FileSystemWikiAdapter()
+    discovery = TickerDiscoveryService(storage, llm)
+    orch = StrategyOrchestrator(llm, storage)
 
     print("\n--- DAY TRADER AGGRESSIVE SCAN ---")
 

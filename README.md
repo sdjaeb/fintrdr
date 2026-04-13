@@ -1,27 +1,53 @@
-# fintrdr
+# fintrdr: Autonomous Wealth Generation Engine
 
-**fintrdr** is an automated financial investment engine and platform designed to grow capital from $100 to high-growth targets. It utilizes a multi-agent AI framework for deep research, automated knowledge management, and event-correlated investment strategies.
+`fintrdr` is an advanced agentic investment platform designed to navigate modern financial markets through a combination of **Domain-Driven Design (DDD)**, **Hexagonal Architecture**, and the **Karpathy Knowledge OS** philosophy.
 
-## Key Features
-- **LLM-Owned Knowledge Base:** An automated, human-read-only wiki built from raw research.
-- **Agentic Research Pipeline:** Deep investigation of financial markets, whitepapers, and portfolios.
-- **Investor Auditing System:** Correlation of past successful moves with global events (e.g., Warren Buffett).
-- **Automated Trading Engine:** Strategy formulation and execution based on synthesized intelligence.
+## 🏗️ Architecture: Hexagonal & DDD
 
-## Getting Started
-- See [docs/ROADMAP.md](docs/ROADMAP.md) for current progress and future plans.
-- See [docs/DESIGN.md](docs/DESIGN.md) for system architecture details.
-- See [docs/REFERENCES.md](docs/REFERENCES.md) for a summary of foundational tools and concepts.
+The project is built on strict software engineering principles to ensure long-term maintainability and modularity:
 
-## Project Structure
-- `docs/`: Design documents, roadmaps, and references.
-- `research/`: Raw research material (papers, articles, images, repos).
-- `knowledge-base/`: LLM-generated wiki (Obsidian compatible).
-- `src/`: Core logic for the engine, strategies, and audits.
-- `tests/`: Project-specific test suites.
+-   **Domain Layer (`src/domain/`)**: The core "heart" of the system. Contains pure business logic, entities (Portfolios, Trades), and **Ports** (interfaces) that define how the engine interacts with the world.
+-   **Application Layer (`src/application/`)**: Orchestrates use cases. Contains services for strategy formulation, risk management, and the "Morning Review" loop.
+-   **Infrastructure Layer (`src/infrastructure/`)**: Implements the Ports. Contains adapters for LLMs (Ollama), Storage (Filesystem), Market Data (yfinance), and Reporting.
 
-## 🛠️ Recommended Tools
-To interact with the intelligence this system generates, the following tools are highly recommended:
-1.  **[Obsidian](https://obsidian.md/):** (Free) Point Obsidian to the `knowledge-base/` folder to use the **Graph View** visualizer. This is your "Mission Control."
-2.  **[VS Code](https://code.visualstudio.com/):** Best for reviewing the Python source code and running the `./review.sh` script.
-3.  **[Ollama](https://ollama.com/):** Must be running locally (`ollama serve`) to power the agents.
+## 🧠 Key Features
+
+-   **Karpathy Knowledge OS**: An LLM-owned research wiki that automatically synthesizes raw data into structured Obsidian-compatible Markdown.
+-   **Multi-Agent Intelligence**: Specialized agents (Economist, Day Trader, Risk Manager, Crypto Watchdog) collaborate to formulate strategies.
+-   **Simons-Style Quant Signals**: Leverages mathematical indicators like **Z-Scores (Mean Reversion)** and **Market Regime Detection** to find statistical edges.
+-   **Interactive Morning Review**: Generates a professional HTML report and leads you through an interactive terminal session to approve or defer trades.
+-   **Strict Risk Protection**: Dynamic cash reserves and position limits enforced by an autonomous Chief Risk Officer.
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Python 3.13+**
+- **[uv](https://github.com/astral-sh/uv)** for dependency management.
+- **[Ollama](https://ollama.com/)** running locally with the `gemma4:e4b` model.
+- **[Obsidian](https://obsidian.md/)** (Optional) to visualize the Knowledge Base.
+
+### Installation
+```bash
+git clone https://github.com/sdjaeb/fintrdr.git
+cd fintrdr
+uv sync
+```
+
+### Usage
+Run the daily intelligence loop:
+```bash
+./review.sh
+```
+
+## 📚 Attributions & Frameworks
+
+`fintrdr` is built upon the following foundational concepts and tools:
+
+-   **[Andrej Karpathy's Knowledge Base Idea](https://x.com/karpathy)**: The "LLM-owned wiki" concept for structured research.
+-   **[Agentic Baseline](https://github.com/google/gemini-cli)**: Orchestration and governance prompts.
+-   **[feynman](https://github.com/getcompanion-ai/feynman)**: Research agent philosophies.
+-   **[claude-code-setup](https://github.com/tomascortereal/claude-code-setup)**: Advanced agentic principles and hook-based governance.
+-   **[graphify](https://github.com/safishamsi/graphify)**: Document-to-graph transformation concepts.
+
+---
+*Disclaimer: fintrdr is an experimental simulation engine. All trades are virtual. Invest real capital at your own risk.*

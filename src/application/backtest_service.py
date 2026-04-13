@@ -1,10 +1,8 @@
-from datetime import datetime, timedelta
-
 import structlog
 
+from src.application.simulator_service import HistoricalSimulator
 from src.domain.portfolio import Portfolio
 from src.domain.strategy import InvestmentStrategy, TradingRule
-from src.simulator.engine import HistoricalSimulator
 
 logger = structlog.get_logger()
 
@@ -15,13 +13,15 @@ class ShadowBacktestService:
     before promotion to the active universe.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def run_shadow_test(self, ticker: str):
+    def run_shadow_test(self, ticker: str) -> dict | None:
         """
         Replays the last 180 days for a specific ticker.
         """
+        from datetime import datetime, timedelta
+
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
 

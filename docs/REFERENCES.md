@@ -1,35 +1,35 @@
-# Project References & Frameworks
+# Project References & Attributions
 
-The following repositories and concepts serve as the foundational framework for `fintrdr`.
+`fintrdr` is an autonomous investment engine built on the shoulders of giants in the AI and Finance communities.
 
-## Core Frameworks & Ideas
+## Core Concepts & Frameworks
 
-### [getcompanion-ai/feynman](https://github.com/getcompanion-ai/feynman)
-- **Purpose:** AI research agent for deep investigation and literature reviews.
-- **Key Use Case:** Automating the research of financial whitepapers and trading strategies.
+### Andrej Karpathy's "The System"
+The **Karpathy Knowledge OS** implemented here is based on Andrej Karpathy's philosophy of using LLMs to build and maintain a personal research wiki. 
+- **Concept:** Raw data ingestion -> LLM Synthesis -> Structured Wiki -> Self-Improving Loop.
+- **Implementation:** See `src/application/services.py` (`WikiMaintenanceService`).
 
-### [milla-jovovich/mempalace](https://github.com/milla-jovovich/mempalace)
-- **Purpose:** High-performance local AI memory system.
-- **Key Use Case:** Storing long-term context, trade rationales, and historical market data efficiently.
+### Hexagonal Architecture (Ports & Adapters)
+The codebase structure follows the Hexagonal Architecture pattern to decouple business logic from infrastructure.
+- **Port Definitions:** `src/domain/ports.py`
+- **Adapters:** `src/infrastructure/`
 
-### [tomascortereal/claude-code-setup](https://github.com/tomascortereal/claude-code-setup)
-- **Purpose:** Advanced configuration for AI agents and lifecycle hooks.
-- **Key Use Case:** Managing specialized agent roles (Researcher, Auditor, Trader) within the project.
+### Jim Simons (Renaissance Technologies)
+Quantitative techniques like **Mean Reversion (Z-Scores)** and **Market Regime Detection** are inspired by the success of the Medallion Fund.
+- **Implementation:** `src/infrastructure/predictive.py`.
 
-### [sickn33/antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills)
-- **Purpose:** Library of "agentic skills" (playbooks) for AI assistants.
-- **Key Use Case:** Providing structured playbooks for security auditing, API design, and testing.
+### Agentic Governance
+Orchestration and risk rules are derived from principles found in modern agentic frameworks.
+- **[google/gemini-cli](https://github.com/google/gemini-cli)**: Baseline prompts and coordination logic.
+- **[tomascortereal/claude-code-setup](https://github.com/tomascortereal/claude-code-setup)**: Deterministic hooks and frontmatter-based discovery.
 
-### [safishamsi/graphify](https://github.com/safishamsi/graphify)
-- **Purpose:** Transforms codebases and documents into queryable knowledge graphs.
-- **Key Use Case:** Identifying hidden architectural structures and relationships between market events and investor moves.
+## Libraries & Tools
+- **[uv](https://github.com/astral-sh/uv)**: Blazing fast Python package management.
+- **[yfinance](https://github.com/ranaroussi/yfinance)**: Real-time and historical market data.
+- **[Ollama](https://ollama.com/)**: Local LLM execution for privacy and cost-efficiency.
+- **[scikit-learn](https://scikit-learn.org/)**: Lightweight ML trajectories.
+- **[Polars](https://pola.rs/)**: High-performance data manipulation.
+- **[Obsidian](https://obsidian.md/)**: Visual interface for the Knowledge Base.
 
-## Karpathy's Knowledge Base Idea
-- **Concept:** An automated system where raw research is collected into a folder and an LLM independently maintains a structured markdown wiki.
-- **Human Role:** Never edits the wiki; it is the source of truth for the human to read.
-- **Agentic Ownership:** The LLM manages all summaries, concept articles, and backlinks.
-
-## Financial Investing & Experts
-- **Focus:** Auditing successful investors like Warren Buffett.
-- **Goal:** Correlate their historical moves with global events (economic indicators, geopolitical shifts, technological breakthroughs).
-- **Target Figures:** Warren Buffett, Ray Dalio, Jim Simons, Cathie Wood, etc.
+---
+*fintrdr is a community-driven experiment in autonomous compounding.*

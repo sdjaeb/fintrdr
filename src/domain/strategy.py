@@ -12,6 +12,7 @@ class TradingRule(BaseModel):
     condition: str
     action: str
     params: dict[str, Any] = Field(default_factory=dict)
+    timing: str = "IMMEDIATE"
 
 
 class InvestmentStrategy(BaseModel):

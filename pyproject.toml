@@ -45,10 +45,22 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --cov=src"
+addopts = "-ra -q --cov=src --cov-report=term-missing"
 pythonpath = [
   "."
 ]
 testpaths = [
     "tests",
+]
+
+[tool.coverage.run]
+omit = [
+    "src/domain/ports.py",
+    "src/main.py",
+    "src/application/init_portfolio.py",
+    "src/application/discovery_run.py",
+    "src/application/expand_universe.py",
+    "src/application/lock_in_trades.py",
+    "src/application/day_trade_review.py",
+    "src/application/wiki_visualizer.py",
 ]

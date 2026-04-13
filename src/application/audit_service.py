@@ -2,9 +2,8 @@ import json
 
 import structlog
 
+from src.domain.ports import LLMPort, WikiStoragePort
 from src.domain.research import WikiArticle
-from src.infrastructure.fs import FileSystemWikiAdapter
-from src.infrastructure.llm import OllamaLLMAdapter
 
 logger = structlog.get_logger()
 
@@ -14,17 +13,17 @@ class DeepAuditService:
     Correlates our current ticker universe with historical events found in the Wiki.
     """
 
-    def __init__(self, fs: FileSystemWikiAdapter, llm: OllamaLLMAdapter):
-        self.fs = fs
+    def __init__(self, storage: WikiStoragePort, llm: LLMPort):
+        self.storage = storage
         self.llm = llm
 
-    def run_correlation_audit(self, universe: list[str]):
+    def run_correlation_audit(self, universe: list[str]) -> None:
         """
         Creates 'Correlation Map' articles in the Wiki.
         """
         logger.info("Starting Deep Audit: Correlation Mapping")
 
-        wiki_index = self.fs.read_index()
+        wiki_index = self.storage.read_index()
 
         prompt = (
             f"You are a Historical Financial Auditor. We are tracking these tickers: {universe}\n\n"
@@ -40,31 +39,34 @@ class DeepAuditService:
             response = self.llm.generate(prompt, system_prompt="You return only JSON.")
             # Robust extraction
             cleaned = response.strip()
+            if cleaned.startswith("```"):
+                if cleaned.startswith("```json"):
+                    cleaned = cleaned.split("```json")[-1].split("```")[0]
+                else:
+                    cleaned = cleaned.split("```")[-1].split("```")[0]
+
             start_idx = cleaned.find("{")
             end_idx = cleaned.rfind("}")
             if start_idx != -1 and end_idx != -1:
                 cleaned = cleaned[start_idx : end_idx + 1]
 
             data = json.loads(cleaned)
+
+            def to_str(val):
+                if isinstance(val, dict | list):
+                    return json.dumps(val, indent=2)
+                return str(val)
+
             article = WikiArticle(
-                title=data.get("title", "Ticker-Event Correlation Map"),
+                title=to_str(data.get("title", "Ticker-Event Correlation Map")),
                 summary="Mapping current universe to historical wiki events.",
-                content=data.get("content", "No content provided."),
+                content=to_str(data.get("content", "No content provided.")),
                 sources=["Wiki Index", "Investor Profiles"],
                 backlinks=["Wiki Index", "2008 Financial Crisis"],
             )
 
-            self.fs.write_wiki_article(article, "ticker_event_correlation_map.md")
+            self.storage.write_wiki_article(article, "ticker_event_correlation_map.md")
             logger.info("Correlation Audit complete and saved to Wiki.")
 
         except Exception as e:
             logger.error("Deep Audit failed", error=str(e))
-
-
-if __name__ == "__main__":
-    llm = OllamaLLMAdapter()
-    fs = FileSystemWikiAdapter()
-    audit = DeepAuditService(fs, llm)
-    with open("src/simulator/data/ticker_universe.json") as f:
-        uni = json.load(f)
-    audit.run_correlation_audit(uni)

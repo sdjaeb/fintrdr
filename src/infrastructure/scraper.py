@@ -2,10 +2,11 @@ import requests
 from bs4 import BeautifulSoup
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from src.domain.ports import ScraperPort
 from src.domain.research import ResearchDocument
 
 
-class PoliteWebScraperAdapter:
+class PoliteWebScraperAdapter(ScraperPort):
     """
     Ingests web content politely with retries and exponential backoff.
     """
@@ -33,6 +34,22 @@ class PoliteWebScraperAdapter:
 
             return ResearchDocument(source_url=url, title=title, raw_content=text)
         except requests.exceptions.RequestException as e:
-            # Structlog will be better here, but print for now
+            # In a full implementation, we'd use structlog here
             print(f"Error fetching {url}: {e}")
-            raise
+            return None
+
+    def fetch_headlines(self, source_url: str = "https://www.cnbc.com/world-markets/") -> str | None:
+        """
+        Fetches current market headlines to provide 'Today' context.
+        """
+        try:
+            response = requests.get(source_url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Simple extraction of headlines
+            headlines = [h.get_text(strip=True) for h in soup.find_all(["h2", "h3"])[:20]]
+            return "\n".join(headlines)
+        except Exception as e:
+            print(f"Error fetching headlines: {e}")
+            return None

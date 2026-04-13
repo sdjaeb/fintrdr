@@ -4,9 +4,8 @@ from datetime import datetime
 
 import structlog
 
+from src.domain.ports import LLMPort, WikiStoragePort
 from src.domain.research import WikiArticle
-from src.infrastructure.fs import FileSystemWikiAdapter
-from src.infrastructure.llm import OllamaLLMAdapter
 
 logger = structlog.get_logger()
 
@@ -17,16 +16,17 @@ class ProgressiveLearningService:
     'Lessons Learned' for the Strategy Orchestrator.
     """
 
-    def __init__(self, fs: FileSystemWikiAdapter, llm: OllamaLLMAdapter):
-        self.fs = fs
+    def __init__(self, storage: WikiStoragePort, llm: LLMPort):
+        self.storage = storage
         self.llm = llm
 
-    def audit_performance(self):
+    def audit_performance(self) -> None:
         """
         Gathers data and synthesizes lessons. Implements a 4-hour cooldown.
         """
         filename = f"strategy_retrospective_{datetime.now().strftime('%Y%m%d')}.md"
-        filepath = os.path.join(self.fs.kb_dir, filename)
+        # This is a leak of kb_dir, ideally storage port handles path checking
+        filepath = os.path.join("knowledge-base", filename)
 
         if os.path.exists(filepath):
             file_mod_time = datetime.fromtimestamp(os.path.getmtime(filepath))
@@ -38,7 +38,7 @@ class ProgressiveLearningService:
 
         # 1. Gather Simulated Data
         sim_data = []
-        portfolio_dir = "src/simulator/portfolios"
+        portfolio_dir = "src/infrastructure/data/portfolios"
         if os.path.exists(portfolio_dir):
             for f in os.listdir(portfolio_dir):
                 if f.endswith(".json"):
@@ -47,7 +47,7 @@ class ProgressiveLearningService:
 
         # 2. Gather Elite Investor Data
         investor_data = []
-        audit_dir = "src/audits"
+        audit_dir = "src/infrastructure/data/audits"
         if os.path.exists(audit_dir):
             for f in os.listdir(audit_dir):
                 if f.endswith(".json"):
@@ -68,35 +68,21 @@ class ProgressiveLearningService:
         try:
             response = self.llm.generate(prompt, system_prompt="You return only a JSON WikiArticle.")
 
-            # Robust Cleaning: Remove markdown and find the first '{' and last '}'
+            # Robust Cleaning
             cleaned = response.strip()
             if "```" in cleaned:
-                # Try to extract content between triple backticks
                 if "```json" in cleaned:
                     cleaned = cleaned.split("```json")[-1].split("```")[0]
                 else:
                     cleaned = cleaned.split("```")[-1].split("```")[0]
 
-            # Find the actual JSON boundaries to ignore any preamble/postamble
+            # Find actual JSON boundaries
             start_idx = cleaned.find("{")
             end_idx = cleaned.rfind("}")
             if start_idx != -1 and end_idx != -1:
                 cleaned = cleaned[start_idx : end_idx + 1]
 
-            try:
-                data = json.loads(cleaned)
-            except json.JSONDecodeError as jde:
-                logger.error(
-                    "Failed to decode Learning JSON. Attempting partial recovery.",
-                    error=str(jde),
-                    raw_snippet=cleaned[:100] + "...",
-                )
-                # Fallback to a safe, non-broken structure if possible
-                data = {
-                    "title": "Strategic Retrospective (Partial Recovery)",
-                    "summary": "Automated audit failed to parse fully. Data may be incomplete.",
-                    "content": f"The LLM produced a malformed response. Error: {str(jde)}\n\nRaw Snippet: {cleaned[:500]}",
-                }
+            data = json.loads(cleaned)
 
             def to_str(val):
                 if isinstance(val, dict | list):
@@ -112,16 +98,8 @@ class ProgressiveLearningService:
             )
 
             # Save to Wiki
-            filename = f"strategy_retrospective_{datetime.now().strftime('%Y%m%d')}.md"
-            self.fs.write_wiki_article(article, filename)
+            self.storage.write_wiki_article(article, filename)
             logger.info("Learning synthesized into Wiki", filename=filename)
 
         except Exception as e:
             logger.error("Learning synthesis failed catastrophically", error=str(e))
-
-
-if __name__ == "__main__":
-    llm = OllamaLLMAdapter()
-    fs = FileSystemWikiAdapter()
-    learning = ProgressiveLearningService(fs, llm)
-    learning.audit_performance()

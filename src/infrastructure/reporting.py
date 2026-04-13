@@ -1,10 +1,13 @@
 import os
 from datetime import datetime
+from typing import Any
 
 import markdown
 
+from src.domain.ports import ReportingPort
 
-class ReportGenerator:
+
+class ReportGeneratorAdapter(ReportingPort):
     """
     Generates a Daily Recommendation report in MD and HTML formats.
     """
@@ -15,7 +18,7 @@ class ReportGenerator:
 
     def generate_daily_report(
         self,
-        recommendations: list[dict],
+        recommendations: list[dict[str, Any]],
         portfolio_value: float = 100.0,
         liquid_cash: float = 0.0,
         risk_reserve: float = 0.0,
@@ -35,7 +38,7 @@ class ReportGenerator:
         html_path = os.path.join(self.output_dir, f"report_{today}.html")
 
         # --- Generate Markdown ---
-        md_content = f"# 🚀 fintrdr Strategic Review ({today})\n\n"
+        md_content = f"# 🚀 Billion Dollar Journey ({today})\n\n"
         md_content += "## 📈 Portfolio Performance\n"
         md_content += f"**Current Total Value:** ${portfolio_value:,.2f}\n"
         md_content += f"**Liquid Cash:** ${liquid_cash:,.2f}\n"
@@ -51,7 +54,7 @@ class ReportGenerator:
 
         summary_total = 0.0
         immediate_moves = [r for r in recommendations if r.get("timing") == "IMMEDIATE"]
-        consolidated: dict[str, dict] = {}
+        consolidated: dict[str, dict[str, Any]] = {}
         for r in immediate_moves:
             key = f"{r['symbol']}_{r['action']}"
             if key not in consolidated:
@@ -71,6 +74,7 @@ class ReportGenerator:
                 line_total = c["quantity"] * c["price"]
                 summary_total += line_total
                 md_content += f"| **{c['symbol']}** | {c['name']} | {c['action']} | {c['quantity']:.4f} | ${c['price']:.2f} | **${line_total:,.2f}** |\n"
+
         md_content += f"| **TOTAL** | | | | | **${summary_total:,.2f}** |\n\n"
 
         md_content += "## 👁️ Universe Watchlist\n"
@@ -101,7 +105,6 @@ class ReportGenerator:
             f.write(md_content)
 
         # --- Generate HTML ---
-        # Add basic styling for a modern look
         css = """
         <style>
             body { font-family: sans-serif; line-height: 1.6; max-width: 900px; margin: 40px auto; padding: 20px; background: #f4f7f6; }
@@ -121,20 +124,4 @@ class ReportGenerator:
                 f"<!DOCTYPE html><html><head><title>fintrdr Report</title>{css}</head><body>{html_body}</body></html>"
             )
 
-        print(f"Daily Reports generated: {md_path} and {html_path}")
         return html_path
-
-
-if __name__ == "__main__":
-    rep = ReportGenerator()
-    rep.generate_daily_report(
-        [
-            {
-                "symbol": "AAPL",
-                "action": "BUY",
-                "quantity": 0.5,
-                "price": 150.0,
-                "timing": "IMMEDIATE",
-            }
-        ]
-    )

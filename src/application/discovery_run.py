@@ -1,4 +1,5 @@
 import json
+import os
 
 import structlog
 
@@ -7,10 +8,11 @@ from src.infrastructure.llm import OllamaLLMAdapter
 logger = structlog.get_logger()
 
 
-def discover_new_universe():
+def discover_new_universe() -> list[str]:
     llm = OllamaLLMAdapter()
 
     current_universe = ["NVDA", "GOOGL", "AMZN", "TSLA", "AAPL"]
+
     prompt = (
         "You are a Senior Market Researcher. The user wants to expand the ticker universe for a new $100 -> $1B portfolio journey.\n\n"
         "Please identify the following tickers:\n"
@@ -45,7 +47,8 @@ def discover_new_universe():
         # Filter for basic ticker validity (1-5 chars)
         final_universe = [t.upper().strip() for t in final_universe if isinstance(t, str) and 1 <= len(t) <= 5]
 
-        universe_path = "src/simulator/data/ticker_universe.json"
+        universe_path = "src/infrastructure/data/universe/ticker_universe.json"
+        os.makedirs(os.path.dirname(universe_path), exist_ok=True)
         with open(universe_path, "w") as f:
             json.dump(final_universe, f, indent=4)
 

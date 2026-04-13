@@ -1,4 +1,5 @@
 import json
+import os
 
 import structlog
 
@@ -7,7 +8,7 @@ from src.infrastructure.llm import OllamaLLMAdapter
 logger = structlog.get_logger()
 
 
-def expand_simons_universe():
+def expand_simons_universe() -> list[str]:
     llm = OllamaLLMAdapter()
 
     prompt = (
@@ -32,9 +33,13 @@ def expand_simons_universe():
 
         new_tickers = json.loads(cleaned)
 
-        universe_path = "src/simulator/data/ticker_universe.json"
-        with open(universe_path) as f:
-            current = json.load(f)
+        universe_path = "src/infrastructure/data/universe/ticker_universe.json"
+        os.makedirs(os.path.dirname(universe_path), exist_ok=True)
+        if os.path.exists(universe_path):
+            with open(universe_path) as f:
+                current = json.load(f)
+        else:
+            current = []
 
         updated = list(set(current + new_tickers))
         # Basic validation

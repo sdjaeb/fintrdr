@@ -6,19 +6,17 @@ from datetime import datetime
 
 import structlog
 
+from src.domain.ports import LLMPort, ScraperPort, WikiStoragePort
 from src.domain.research import WikiArticle
 from src.domain.telemetry import WikiLoopTelemetry
-from src.infrastructure.fs import FileSystemWikiAdapter
-from src.infrastructure.llm import OllamaLLMAdapter
-from src.infrastructure.scraper import PoliteWebScraperAdapter
 
 logger = structlog.get_logger()
 
 
 class ResearchIngestionService:
-    def __init__(self, scraper: PoliteWebScraperAdapter, fs: FileSystemWikiAdapter):
+    def __init__(self, scraper: ScraperPort, storage: WikiStoragePort):
         self.scraper = scraper
-        self.fs = fs
+        self.storage = storage
 
     def ingest_urls(self, urls: list[str]) -> None:
         """
@@ -28,7 +26,7 @@ class ResearchIngestionService:
             try:
                 doc = self.scraper.fetch_url(url)
                 if doc:
-                    path = self.fs.save_raw_research(doc)
+                    path = self.storage.save_raw_research(doc)
                     logger.info("Ingested URL", url=url, path=path)
             except Exception as e:
                 logger.error("Failed to ingest URL", url=url, error=str(e))
@@ -40,26 +38,32 @@ class TickerDiscoveryService:
     Manages both 'Active' and 'Watchlist' tiers.
     """
 
-    def __init__(self, fs: FileSystemWikiAdapter, llm: OllamaLLMAdapter):
-        self.fs = fs
+    def __init__(self, storage: WikiStoragePort, llm: LLMPort):
+        self.storage = storage
         self.llm = llm
-        self.universe_path = "src/simulator/data/ticker_universe.json"
-        self.watchlist_path = "src/simulator/data/ticker_watchlist.json"
-        os.makedirs(os.path.dirname(self.universe_path), exist_ok=True)
+        # Paths are managed by the storage port, but service knows the concept
+        self.universe_path = "src/infrastructure/data/universe/ticker_universe.json"
+        self.watchlist_path = "src/infrastructure/data/universe/ticker_watchlist.json"
 
     def discover_tickers_from_wiki(self) -> list[str]:
         """
         Reads all Wiki articles in the knowledge base to extract and validate ticker symbols.
         """
         logger.info("Discovering tickers from all Wiki articles")
-        kb_files = [f for f in os.listdir(self.fs.kb_dir) if f.endswith(".md") and f != "Wiki Index.md"]
+        # This is a bit of a leak, ideally storage port handles listing
+        kb_dir = "knowledge-base"
+        try:
+            kb_files = [f for f in os.listdir(kb_dir) if f.endswith(".md") and f != "Wiki Index.md"]
 
-        all_content = ""
-        for f in kb_files:
-            all_content += self.fs.read_file(os.path.join(self.fs.kb_dir, f)) + "\n\n"
+            all_content = ""
+            for f in kb_files:
+                all_content += self.storage.read_file(os.path.join(kb_dir, f)) + "\n\n"
 
-        if not all_content:
-            logger.info("No wiki content found to analyze.")
+            if not all_content:
+                logger.info("No wiki content found to analyze.")
+                return []
+        except Exception as e:
+            logger.error("Failed to read wiki content", error=str(e))
             return []
 
         prompt = (
@@ -74,7 +78,6 @@ class TickerDiscoveryService:
 
         try:
             response = self.llm.generate(prompt, system_prompt="You return only a JSON list of strings.")
-            # Clean Markdown wrapping
             cleaned = response.strip()
             if "```" in cleaned:
                 if "```json" in cleaned:
@@ -91,10 +94,7 @@ class TickerDiscoveryService:
             if not isinstance(discovered, list):
                 return []
 
-            # Basic validation (must be 1-5 uppercase chars or crypto -USD)
             valid_tickers = [t.upper() for t in discovered if isinstance(t, str)]
-
-            # Update the persistent universe
             self.update_universe(valid_tickers)
             return valid_tickers
 
@@ -106,10 +106,15 @@ class TickerDiscoveryService:
         """
         Specifically looks for low-priced, high-momentum tickers in the Wiki and news.
         """
-        all_content = ""
-        kb_files = [f for f in os.listdir(self.fs.kb_dir) if f.endswith(".md")]
-        for f in kb_files:
-            all_content += self.fs.read_file(os.path.join(self.fs.kb_dir, f)) + "\n"
+        try:
+            all_content = ""
+            kb_dir = "knowledge-base"
+            kb_files = [f for f in os.listdir(kb_dir) if f.endswith(".md")]
+            for f in kb_files:
+                all_content += self.storage.read_file(os.path.join(kb_dir, f)) + "\n"
+        except Exception as e:
+            logger.error("Failed to read wiki for volatile discovery", error=str(e))
+            return []
 
         prompt = (
             f"You are a Day Trader scanning for opportunities. Read this content:\n{all_content[:4000]}\n\n"
@@ -125,68 +130,70 @@ class TickerDiscoveryService:
         except Exception:
             return []
 
-    def manage_universe(self, trajectories: dict[str, str]):
+    def manage_universe(self, trajectories: dict[str, str]) -> dict[str, list[str]]:
         """
         Reviews Active vs. Watchlist and recommends promotions/demotions.
         """
         logger.info("Managing Ticker Universe and Watchlist Tiering")
 
-        current_active = []
-        if os.path.exists(self.universe_path):
-            with open(self.universe_path) as f:
-                current_active = json.load(f)
+        try:
+            current_active = []
+            if os.path.exists(self.universe_path):
+                with open(self.universe_path) as f:
+                    current_active = json.load(f)
 
-        current_watch = []
-        if os.path.exists(self.watchlist_path):
-            with open(self.watchlist_path) as f:
-                current_watch = json.load(f)
-        else:
-            current_watch = ["PLTR", "SOFI", "HOOD", "ARM"]
+            current_watch = []
+            if os.path.exists(self.watchlist_path):
+                with open(self.watchlist_path) as f:
+                    current_watch = json.load(f)
+            else:
+                current_watch = ["PLTR", "SOFI", "HOOD", "ARM"]
 
-        # Logic for Promotion/Demotion
-        # 1. Promote: Watchlist item with UPWARD momentum
-        to_promote = [t for t in current_watch if trajectories.get(t, "").startswith("UPWARD")]
+            to_promote = [t for t in current_watch if trajectories.get(t, "").startswith("UPWARD")]
+            to_demote = [t for t in current_active if trajectories.get(t, "").startswith("DOWNWARD")]
 
-        # 2. Demote: Active item with DOWNWARD momentum for > 3 review cycles (simplified here)
-        to_demote = [t for t in current_active if trajectories.get(t, "").startswith("DOWNWARD")]
+            new_active = list(set([t for t in current_active if t not in to_demote] + to_promote))
+            new_watch = list(set([t for t in current_watch if t not in to_promote] + to_demote))
 
-        # Update files
-        new_active = list(set([t for t in current_active if t not in to_demote] + to_promote))
-        new_watch = list(set([t for t in current_watch if t not in to_promote] + to_demote))
+            with open(self.universe_path, "w") as f:
+                json.dump(new_active, f, indent=4)
+            with open(self.watchlist_path, "w") as f:
+                json.dump(new_watch, f, indent=4)
 
-        with open(self.universe_path, "w") as f:
-            json.dump(new_active, f, indent=4)
-        with open(self.watchlist_path, "w") as f:
-            json.dump(new_watch, f, indent=4)
+            if to_promote:
+                logger.info("Tickers PROMOTED to Active Universe", tickers=to_promote)
+            if to_demote:
+                logger.info("Tickers DEMOTED to Watchlist", tickers=to_demote)
 
-        if to_promote:
-            logger.info("Tickers PROMOTED to Active Universe", tickers=to_promote)
-        if to_demote:
-            logger.info("Tickers DEMOTED to Watchlist", tickers=to_demote)
+            return {"promoted": to_promote, "demoted": to_demote}
+        except Exception as e:
+            logger.error("Universe management failed", error=str(e))
+            return {"promoted": [], "demoted": []}
 
-        return {"promoted": to_promote, "demoted": to_demote}
-
-    def update_universe(self, new_tickers: list[str]):
+    def update_universe(self, new_tickers: list[str]) -> None:
         """
         Saves discovered tickers to universe. Moves low-confidence to watchlist.
         """
-        current_universe = []
-        if os.path.exists(self.universe_path):
-            with open(self.universe_path) as f:
-                current_universe = json.load(f)
+        try:
+            current_universe = []
+            if os.path.exists(self.universe_path):
+                with open(self.universe_path) as f:
+                    current_universe = json.load(f)
 
-        updated = list(set(current_universe + new_tickers))
-        with open(self.universe_path, "w") as f:
-            json.dump(updated, f, indent=4)
-        logger.info("Ticker Universe updated", total_count=len(updated))
+            updated = list(set(current_universe + new_tickers))
+            with open(self.universe_path, "w") as f:
+                json.dump(updated, f, indent=4)
+            logger.info("Ticker Universe updated", total_count=len(updated))
+        except Exception as e:
+            logger.error("Universe update failed", error=str(e))
 
-    def run_wiki_health_check(self):
+    def run_wiki_health_check(self) -> dict | None:
         """
         Karpathy Point #7 & #9: Self-improving loop and health checks.
         Scans the wiki to find inconsistencies and missing connections.
         """
         logger.info("Starting Wiki Health Check (Linter)")
-        index_content = self.fs.read_index()
+        index_content = self.storage.read_index()
 
         prompt = (
             f"You are a Knowledge Base Auditor. Review this Wiki Index and structure:\n{index_content}\n\n"
@@ -230,7 +237,7 @@ class TickerDiscoveryService:
                 sources=["Wiki Internal Linter"],
                 backlinks=["Wiki Index"],
             )
-            self.fs.write_wiki_article(health_article, f"wiki_health_audit_{datetime.now().strftime('%Y%m%d')}.md")
+            self.storage.write_wiki_article(health_article, f"wiki_health_audit_{datetime.now().strftime('%Y%m%d')}.md")
             logger.info("Wiki Health Audit complete.")
             return data
         except Exception as e:
@@ -239,8 +246,8 @@ class TickerDiscoveryService:
 
 
 class WikiMaintenanceService:
-    def __init__(self, fs: FileSystemWikiAdapter, llm: OllamaLLMAdapter):
-        self.fs = fs
+    def __init__(self, storage: WikiStoragePort, llm: LLMPort):
+        self.storage = storage
         self.llm = llm
 
     def run_karpathy_loop(self) -> WikiLoopTelemetry:
@@ -255,8 +262,8 @@ class WikiMaintenanceService:
         logger.info("Starting Karpathy Wiki Loop", iteration_id=iteration_id)
 
         try:
-            index_content = self.fs.read_index()
-            unprocessed_files = self.fs.list_unprocessed_research(processed_urls=[])
+            index_content = self.storage.read_index()
+            unprocessed_files = self.storage.list_unprocessed_research(processed_urls=[])
 
             if not unprocessed_files:
                 logger.info("No new research to process.")
@@ -265,10 +272,9 @@ class WikiMaintenanceService:
                 return telemetry
 
             for file_to_process in unprocessed_files:
-                if os.path.basename(file_to_process) in self.fs._load_manifest():
-                    continue
-
-                raw_content = self.fs.read_file(file_to_process)
+                # Double-check manifest inside the loop to handle rapid state changes
+                # Note: storage port should ideally handle this check
+                raw_content = self.storage.read_file(file_to_process)
                 logger.info("Processing raw research", file=file_to_process)
 
                 prompt = (
@@ -283,19 +289,19 @@ class WikiMaintenanceService:
                 response = self.llm.generate(prompt, system_prompt="You return only valid JSON.")
                 telemetry.ollama_response_time_ms += (time.perf_counter() - start_llm) * 1000
 
-                cleaned_response = response.strip()
-                if "```" in cleaned_response:
-                    if "```json" in cleaned_response:
-                        cleaned_response = cleaned_response.split("```json")[-1].split("```")[0]
-                    else:
-                        cleaned_response = cleaned_response.split("```")[-1].split("```")[0]
-
-                start_idx = cleaned_response.find("{")
-                end_idx = cleaned_response.rfind("}")
-                if start_idx != -1 and end_idx != -1:
-                    cleaned_response = cleaned_response[start_idx : end_idx + 1]
-
                 try:
+                    cleaned_response = response.strip()
+                    if "```" in cleaned_response:
+                        if "```json" in cleaned_response:
+                            cleaned_response = cleaned_response.split("```json")[-1].split("```")[0]
+                        else:
+                            cleaned_response = cleaned_response.split("```")[-1].split("```")[0]
+
+                    start_idx = cleaned_response.find("{")
+                    end_idx = cleaned_response.rfind("}")
+                    if start_idx != -1 and end_idx != -1:
+                        cleaned_response = cleaned_response[start_idx : end_idx + 1]
+
                     data = json.loads(cleaned_response)
 
                     def to_str(val):
@@ -312,9 +318,9 @@ class WikiMaintenanceService:
                     )
 
                     filename = f"{article.title.lower().replace(' ', '_')}.md"
-                    self.fs.write_wiki_article(article, filename)
+                    self.storage.write_wiki_article(article, filename)
                     logger.info("Wrote Wiki Article", title=article.title, filename=filename)
-                    self.fs.mark_as_processed(file_to_process)
+                    self.storage.mark_as_processed(file_to_process)
                     telemetry.files_processed += 1
 
                     update_prompt = (
@@ -323,7 +329,7 @@ class WikiMaintenanceService:
                         "Return the entire updated Markdown index."
                     )
                     index_content = self.llm.generate(update_prompt)
-                    self.fs.write_index(index_content)
+                    self.storage.write_index(index_content)
                     logger.info("Updated Wiki Index with", title=article.title)
 
                 except json.JSONDecodeError as jde:
@@ -338,9 +344,5 @@ class WikiMaintenanceService:
             telemetry.error_message = str(e)
 
         telemetry.end_time = datetime.now()
-        logger.info(
-            "Finished Karpathy Wiki Loop",
-            status=telemetry.status,
-            duration=telemetry.duration_seconds,
-        )
+        logger.info("Finished Karpathy Wiki Loop", status=telemetry.status, duration=telemetry.duration_seconds)
         return telemetry

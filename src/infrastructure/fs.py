@@ -3,11 +3,12 @@ import os
 from datetime import datetime
 from urllib.parse import urlparse
 
+from src.domain.ports import WikiStoragePort
 from src.domain.research import ResearchDocument, WikiArticle
 from src.domain.strategy import InvestmentStrategy
 
 
-class FileSystemWikiAdapter:
+class FileSystemWikiAdapter(WikiStoragePort):
     """
     Handles reading and writing to the local file system (Karpathy style wiki).
     """
@@ -15,7 +16,7 @@ class FileSystemWikiAdapter:
     def __init__(self, base_dir: str = "."):
         self.research_dir = os.path.join(base_dir, "research")
         self.kb_dir = os.path.join(base_dir, "knowledge-base")
-        self.strategy_dir = os.path.join(base_dir, "src/strategies")
+        self.strategy_dir = os.path.join(base_dir, "src/infrastructure/data/strategies")
         self.index_path = os.path.join(self.kb_dir, "Wiki Index.md")
         self.manifest_path = os.path.join(self.research_dir, ".processed_manifest.json")
 
@@ -23,32 +24,12 @@ class FileSystemWikiAdapter:
         os.makedirs(self.kb_dir, exist_ok=True)
         os.makedirs(self.strategy_dir, exist_ok=True)
 
-    def save_strategy(self, strategy: InvestmentStrategy) -> str:
-        """
-        Saves a formulated strategy to the strategies folder.
-        """
-        filename = f"{strategy.name.lower().replace(' ', '_')}.json"
-        filepath = os.path.join(self.strategy_dir, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(strategy.model_dump_json(indent=4))
-        return filepath
-
-    def load_strategy(self, name: str) -> InvestmentStrategy | None:
-        """
-        Loads a strategy by name.
-        """
-        filename = f"{name.lower().replace(' ', '_')}.json"
-        filepath = os.path.join(self.strategy_dir, filename)
-        if not os.path.exists(filepath):
-            return None
-        with open(filepath, encoding="utf-8") as f:
-            return InvestmentStrategy.model_validate_json(f.read())
-
     def _load_manifest(self) -> dict[str, str]:
         if not os.path.exists(self.manifest_path):
             return {}
         with open(self.manifest_path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            return dict(data) if isinstance(data, dict) else {}
 
     def _save_manifest(self, manifest: dict[str, str]) -> None:
         with open(self.manifest_path, "w", encoding="utf-8") as f:
@@ -134,9 +115,30 @@ class FileSystemWikiAdapter:
 
         return filepath
 
-    def write_index(self, content: str):
+    def write_index(self, content: str) -> None:
         """
         Overwrites the Wiki Index with the LLM's new version.
         """
         with open(self.index_path, "w", encoding="utf-8") as f:
             f.write(content)
+
+    def save_strategy(self, strategy: InvestmentStrategy) -> str:
+        """
+        Saves a formulated strategy to the strategies folder.
+        """
+        filename = f"{strategy.name.lower().replace(' ', '_')}.json"
+        filepath = os.path.join(self.strategy_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(strategy.model_dump_json(indent=4))
+        return filepath
+
+    def load_strategy(self, name: str) -> InvestmentStrategy | None:
+        """
+        Loads a strategy by name.
+        """
+        filename = f"{name.lower().replace(' ', '_')}.json"
+        filepath = os.path.join(self.strategy_dir, filename)
+        if not os.path.exists(filepath):
+            return None
+        with open(filepath, encoding="utf-8") as f:
+            return InvestmentStrategy.model_validate_json(f.read())

@@ -11,8 +11,8 @@ class RiskManager:
     Enforces risk constraints on all proposed trades.
     """
 
-    def __init__(self, profile: RiskProfile = RiskProfile()):
-        self.profile = profile
+    def __init__(self, profile: RiskProfile | None = None):
+        self.profile = profile or RiskProfile()
 
     def determine_cash_reserve(self, trajectories: dict[str, str]) -> float:
         """
@@ -22,20 +22,20 @@ class RiskManager:
         total_count = len(trajectories)
 
         if total_count == 0:
-            return self.profile.emergency_cash_reserve_pct
+            return float(self.profile.emergency_cash_reserve_pct)
 
         bear_ratio = bearish_count / total_count
 
         if bear_ratio > 0.5:
             logger.info("Market Sentiment: Bearish. Increasing cash protection.")
-            return min(0.50, self.profile.emergency_cash_reserve_pct * 2.5)
+            return float(min(0.50, self.profile.emergency_cash_reserve_pct * 2.5))
 
         bullish_count = sum(1 for t in trajectories.values() if "UPWARD" in t)
         if total_count > 0 and bullish_count / total_count > 0.8:
             logger.info("Market Sentiment: Strongly Bullish. Maximizing deployment.")
             return 0.05
 
-        return self.profile.emergency_cash_reserve_pct
+        return float(self.profile.emergency_cash_reserve_pct)
 
     def validate_trade(
         self,
@@ -59,7 +59,7 @@ class RiskManager:
             if (current_crypto_val + trade_value) / current_value > self.profile.max_crypto_exposure_pct:
                 logger.warn("Risk Violation: Crypto Cap Exceeded", symbol=symbol)
                 allowed_val = (current_value * self.profile.max_crypto_exposure_pct) - current_crypto_val
-                new_qty = max(0, allowed_val / price)
+                new_qty = max(0.0, allowed_val / price)
                 return RiskAssessment(
                     symbol=symbol,
                     is_approved=True,
@@ -83,12 +83,12 @@ class RiskManager:
             logger.warn("Risk Violation: Cash Reserve Low", symbol=symbol)
             allowed_cash = portfolio.cash - (current_value * reserve_pct)
             if allowed_cash <= 0:
-                return RiskAssessment(symbol=symbol, is_approved=False, recommended_quantity=0)
+                return RiskAssessment(symbol=symbol, is_approved=False, recommended_quantity=0.0)
             new_qty = allowed_cash / price
             return RiskAssessment(
                 symbol=symbol,
                 is_approved=True,
-                adjustment_reason=f"Capped by {reserve_pct*100}% Cash Reserve",
+                adjustment_reason=f"Capped by {reserve_pct*100:.1f}% Cash Reserve",
                 recommended_quantity=new_qty,
             )
 

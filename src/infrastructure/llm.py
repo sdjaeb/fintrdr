@@ -1,8 +1,10 @@
 import requests
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from src.domain.ports import LLMPort
 
-class OllamaLLMAdapter:
+
+class OllamaLLMAdapter(LLMPort):
     """
     Adapter for a local Ollama instance.
     Defaults to using the gemma4:e4b model as requested.
@@ -30,4 +32,4 @@ class OllamaLLMAdapter:
         response.raise_for_status()
 
         data = response.json()
-        return data.get("response", "")
+        return str(data.get("response", ""))

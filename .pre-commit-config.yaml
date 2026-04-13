@@ -10,3 +10,9 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [pydantic, types-requests, types-beautifulsoup4, types-markdown]
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []

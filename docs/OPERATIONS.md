@@ -53,4 +53,19 @@ The system uses lightweight machine learning to identify the "direction" of an a
 3.  **Advanced ML**: Replace the `TrajectoryPredictor` with a more complex model (e.g., Random Forest or LSTM) by updating the `predictive.py` adapter.
 
 ---
+
+## 🛠️ Git Standards (Conventional Commits)
+
+To maintain a clean and searchable history, this project enforces the **Conventional Commits** standard. Every commit must follow this format:
+`<type>(scope): description`
+
+**Common Types:**
+- `feat`: A new feature (e.g., a new specialist agent).
+- `fix`: A bug fix (e.g., fixing a JSON parse error).
+- `refactor`: A code change that neither fixes a bug nor adds a feature.
+- `docs`: Documentation only changes.
+- `test`: Adding missing tests or correcting existing tests.
+- `chore`: Changes to the build process or auxiliary tools.
+
+---
 *fintrdr Strategic Review — Empowering autonomous wealth generation through intelligence.*
